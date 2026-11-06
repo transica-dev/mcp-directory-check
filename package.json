@@ -1,17 +1,38 @@
 {
   "name": "mcp-directory-check",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Check a remote MCP server against ChatGPT's and Claude's published directory rules. Read-only, no account.",
-  "keywords": ["mcp", "model-context-protocol", "chatgpt", "claude", "connector", "plugin", "directory", "lint"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "chatgpt",
+    "claude",
+    "connector",
+    "plugin",
+    "directory",
+    "lint"
+  ],
   "license": "MIT",
   "homepage": "https://transica.dev/tools/mcp-directory-check",
-  "repository": { "type": "git", "url": "git+https://github.com/transica-dev/mcp-directory-check.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/transica-dev/mcp-directory-check.git"
+  },
   "type": "module",
-  "bin": { "mcp-directory-check": "dist/cli.js" },
+  "bin": {
+    "mcp-directory-check": "dist/cli.js"
+  },
   "main": "dist/index.js",
-  "exports": { ".": "./dist/index.js" },
-  "files": ["dist", "action.yml"],
-  "engines": { "node": ">=20" },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "action.yml"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "esbuild src/cli.ts src/index.ts --bundle --platform=node --format=esm --target=node20 --outdir=dist",
     "test": "vitest run",
