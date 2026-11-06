@@ -1,0 +1,25 @@
+name: MCP directory check
+description: Check a remote MCP server against ChatGPT's and Claude's published directory rules.
+branding:
+  icon: check-circle
+  color: green
+inputs:
+  url:
+    description: The address of your MCP server, such as https://example.com/mcp
+    required: true
+  directory:
+    description: Only rules for one directory, chatgpt or claude
+    required: false
+  fail-on:
+    description: What fails the step, fail or warn
+    required: false
+    default: fail
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        MCP_URL: ${{ inputs.url }}
+        MCP_DIRECTORY: ${{ inputs.directory }}
+        MCP_FAIL_ON: ${{ inputs.fail-on }}
+      run: node "$GITHUB_ACTION_PATH/dist/cli.js" "$MCP_URL" --fail-on "$MCP_FAIL_ON" ${MCP_DIRECTORY:+--directory "$MCP_DIRECTORY"}
