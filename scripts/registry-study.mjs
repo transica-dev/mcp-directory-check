@@ -1,6 +1,9 @@
 // Runs the check across remote servers in the official MCP Registry and prints totals only.
 // Read-only and slow on purpose: one request set per host, a few at a time.
-// Usage: npm run build && node scripts/registry-study.mjs [--limit 40] [--out results.jsonl]
+// Hosts are picked in a fixed pseudo-random order, with at most 25 under one registered domain, so
+// one platform's subdomains don't dominate. The OpenAI domain file is left out of the failure
+// totals, because a server only needs it once it's submitted.
+// Usage: npm run build && node scripts/registry-study.mjs [--limit 2000] [--out results.jsonl]
 import { appendFileSync } from "node:fs";
 import { checkMcpServer, publicFetch } from "../dist/index.js";
 
@@ -40,7 +43,17 @@ const { total, remotes } = await listRemotes();
 console.log(`Registry: ${total} servers, ${remotes.length} remote hosts over Streamable HTTP`);
 // A fixed shuffle, so a sample isn't just the alphabet's start.
 const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
-const queue = [...remotes].sort((a, b) => hash(a.url) - hash(b.url)).slice(0, LIMIT || undefined);
+const perDomain = new Map();
+const queue = [...remotes]
+  .sort((a, b) => hash(a.url) - hash(b.url))
+  .filter((r) => {
+    const domain = new URL(r.url).hostname.split(".").slice(-2).join(".");
+    const seen = perDomain.get(domain) ?? 0;
+    perDomain.set(domain, seen + 1);
+    return seen < 25;
+  })
+  .slice(0, LIMIT || undefined);
+console.log(`Hosts after the per-domain cap, in this run: ${queue.length}`);
 
 const rows = [];
 async function worker() {
@@ -81,9 +94,19 @@ console.log(`Answered at all: ${pct(reachable.length, rows.length)}`);
 console.log(`Spoke MCP or asked for sign-in: ${pct(mcpOk.length, rows.length)}`);
 console.log(`Asked for sign-in first: ${pct(rows.filter((r) => r.signedOut).length, rows.length)}`);
 console.log(`Tools readable without sign-in: ${pct(readable.length, rows.length)}`);
-console.log(`Of those, tool or other failures for ChatGPT: ${pct(readable.filter((r) => r.chatgptFails > 0).length, readable.length)}`);
-console.log(`Of those, tool or other failures for Claude: ${pct(readable.filter((r) => r.claudeFails > 0).length, readable.length)}`);
+const real = (r) => r.fails.filter((id) => id !== "openai-challenge");
+const failsFor = (r, field) => r[field] - (r.fails.includes("openai-challenge") && field === "chatgptFails" ? 1 : 0);
+console.log(`Of those, at least one failed rule (domain file aside): ${pct(readable.filter((r) => real(r).length).length, readable.length)}`);
+console.log(`Of those, a failed ChatGPT rule (domain file aside): ${pct(readable.filter((r) => failsFor(r, "chatgptFails") > 0).length, readable.length)}`);
+console.log(`Of those, a failed Claude rule: ${pct(readable.filter((r) => failsFor(r, "claudeFails") > 0).length, readable.length)}`);
 const counts = {};
-for (const r of mcpOk) for (const id of r.fails) counts[id] = (counts[id] ?? 0) + 1;
-console.log("Most common failed checks, among servers that spoke MCP:");
-for (const [id, n] of Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`  ${id}: ${pct(n, mcpOk.length)}`);
+for (const r of readable) for (const id of real(r)) counts[id] = (counts[id] ?? 0) + 1;
+console.log("Most common failed checks, among servers with readable tools:");
+for (const [id, n] of Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 15)) console.log(`  ${id}: ${pct(n, readable.length)}`);
+const signIn = {};
+const asks = rows.filter((r) => r.signedOut);
+for (const r of asks) for (const id of real(r)) signIn[id] = (signIn[id] ?? 0) + 1;
+console.log("Most common failed checks, among servers that ask for sign-in:");
+for (const [id, n] of Object.entries(signIn).sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log(`  ${id}: ${pct(n, asks.length)}`);
+const tools = readable.map((r) => r.tools).sort((a, b) => a - b);
+console.log(`Median tools per readable server: ${tools[Math.floor(tools.length / 2)] ?? "n/a"}`);

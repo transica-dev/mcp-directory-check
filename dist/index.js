@@ -1340,7 +1340,9 @@ function capped(res) {
 }
 var publicFetch = (allowLoopback = false) => (target) => (async (input, init) => {
   await assertAllowed(target, allowLoopback);
-  return capped(await fetch(input, { ...init, redirect: "manual" }));
+  const headers = new Headers(init?.headers);
+  headers.set("user-agent", "mcp-directory-check (+https://transica.dev/tools/mcp-directory-check)");
+  return capped(await fetch(input, { ...init, headers, redirect: "manual" }));
 });
 export {
   NOTE2 as NOTE,
